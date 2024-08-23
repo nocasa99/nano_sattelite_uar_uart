@@ -1,19 +1,132 @@
 import sys
 import serial.tools.list_ports
 import pyqtgraph as pg
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QGridLayout, QPushButton, QScrollArea, QSizePolicy, QComboBox
-from PyQt6.QtCore import QTimer, QThread,pyqtSignal
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QGridLayout, QPushButton, QScrollArea, QSlider, QComboBox, QLabel
+from PyQt6.QtCore import QTimer, Qt
 from datetime import datetime
 import save_to_excel
 import numpy as np
 import datetime as dt
 from pyqtgraph import AxisItem
 
-
-
-class MainWindow(QMainWindow):
+#Home window class
+class HomeWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+
+        self.setWindowTitle("UART Menu")
+        self.setStyleSheet("background-color: black;")
+        self.setGeometry(200, 200, 400, 300)
+
+        # Create a main widget to hold the layout
+        self.main_widget = QWidget(self)
+        self.setCentralWidget(self.main_widget)
+
+        # Create a layout to organize the buttons
+        self.layout = QVBoxLayout(self.main_widget)
+
+        # Common button style
+        button_style = """
+            QPushButton {
+                background-color: black;
+                color: white;
+                border: 2px solid white;
+                padding: 10px 20px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #333;
+            }
+        """
+
+        # Create a button to go to the main window
+        self.main_button = QPushButton("Main Panel", self)
+        self.main_button.setStyleSheet(button_style)
+        self.main_button.clicked.connect(self.open_main_window)
+        self.layout.addWidget(self.main_button)
+
+        #create a button to go to control window
+        self.control_button = QPushButton("Control Panel", self)
+        self.control_button.setStyleSheet(button_style)
+        self.control_button.clicked.connect(self.open_control_window)
+        self.layout.addWidget(self.control_button)
+
+    def open_main_window(self):
+        self.main_window = MainWindow(self)
+        self.main_window.show()
+        self.hide()
+    
+    def open_control_window(self):
+        self.control_window = ControlWindow(self)
+        self.control_window.show()
+        self.hide()
+
+# Control Window Class
+class ControlWindow(QMainWindow):
+    def __init__(self, home_window):
+        super().__init__()
+        self.home_window = home_window
+        self.setWindowTitle('Control Window')
+        self.setStyleSheet("background-color: black;")
+        self.setGeometry(100, 100, 400, 300)
+
+        self.main_widget = QWidget()
+        self.layout = QVBoxLayout(self.main_widget)
+        self.setCentralWidget(self.main_widget)
+
+        self.input_layout = QGridLayout()
+
+        # Common button style
+        button_style = """
+            QPushButton {
+                background-color: black;
+                color: white;
+                border: 1px solid white;
+                padding: 5px 5px;
+                font-size: 13px;
+                
+            }
+            QPushButton:hover {
+                background-color: #333;
+            }
+        """
+
+        # Back Button
+        self.back_button = QPushButton("Back to Home")
+        self.back_button.clicked.connect(self.go_back)
+        self.back_button.setStyleSheet(button_style)
+        # self.back_button.setStyleSheet("background-color: white; color: black;")
+        self.input_layout.addWidget(self.back_button, 0, 0, 1, 1)
+
+        # Example slider
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(100)
+        self.input_layout.addWidget(self.slider, 1, 0, 1, 4)
+
+        # Label to display the slider value
+        self.slider_value_label = QLabel("Slider Value: 0")
+        self.input_layout.addWidget(self.slider_value_label, 2, 0, 1, 4)
+        self.slider.valueChanged.connect(self.update_slider_value)
+
+
+        # Example button
+        self.example_button = QPushButton("Example Button")
+        self.input_layout.addWidget(self.example_button, 3, 0, 1, 4)
+
+        self.layout.addLayout(self.input_layout)
+
+    def update_slider_value(self, value):
+        self.slider_value_label.setText(f"Slider Value: {value}")
+
+    def go_back(self):
+        self.home_window.show()
+        self.close()
+
+class MainWindow(QMainWindow):
+    def __init__(self, home_window):
+        super().__init__()
+        self.home_window = home_window
         self.setWindowTitle('UART Dashboard')
         self.setStyleSheet("background-color: black;")
 
@@ -33,11 +146,33 @@ class MainWindow(QMainWindow):
 
         self.input_layout = QGridLayout()
 
+        # Common button style
+        button_style = """
+            QPushButton {
+                background-color: black;
+                color: white;
+                border: 1px solid white;
+                padding: 5px 5px;
+                font-size: 13px;
+                
+            }
+            QPushButton:hover {
+                background-color: #333;
+            }
+        """
+
+        # Back Button
+        self.back_button = QPushButton("Back to Home")
+        self.back_button.clicked.connect(self.go_back)
+        self.back_button.setStyleSheet(button_style)
+        # self.back_button.setStyleSheet("background-color: white; color: black;")
+        self.input_layout.addWidget(self.back_button, 0, 0, 1, 1)
+
         self.port_input = QComboBox()
         self.port_input.setStyleSheet("background-color: white; color: black;")
         self.refresh_ports()
 
-        self.input_layout.addWidget(self.port_input, 0, 0, 1, 2)
+        self.input_layout.addWidget(self.port_input, 0, 1, 1, 2)
 
         self.apply_button = QPushButton("Apply Port")
         self.apply_button.clicked.connect(self.change_port)
@@ -80,7 +215,7 @@ class MainWindow(QMainWindow):
         self.hum_plot_widget.setLabel('left', 'Humidity')
         self.hum_plot_widget.setFixedSize(500, 400)
         self.grid_layout.addWidget(self.hum_plot_widget, 0, 3, 1, 2)
-        self.temp_plot_widget.setMouseEnabled(x=True, y=False)
+        self.hum_plot_widget.setMouseEnabled(x=True, y=False)
         self.hum_plot = self.hum_plot_widget.plot()
         self.hum_data = []
 
@@ -89,7 +224,7 @@ class MainWindow(QMainWindow):
         self.pres_plot_widget.setLabel('left', 'Pressure')
         self.pres_plot_widget.setFixedSize(500, 400)
         self.grid_layout.addWidget(self.pres_plot_widget, 1, 1, 1, 2)
-        self.temp_plot_widget.setMouseEnabled(x=True, y=False)
+        self.pres_plot_widget.setMouseEnabled(x=True, y=False)
         self.pres_plot = self.pres_plot_widget.plot()
         self.pres_data = []
 
@@ -98,7 +233,7 @@ class MainWindow(QMainWindow):
         self.alt_plot_widget.setLabel('left', 'Altitude')
         self.alt_plot_widget.setFixedSize(500, 400)
         self.grid_layout.addWidget(self.alt_plot_widget, 1, 3, 1, 2)
-        self.temp_plot_widget.setMouseEnabled(x=True, y=False)
+        self.alt_plot_widget.setMouseEnabled(x=True, y=False)
         self.alt_plot = self.alt_plot_widget.plot()
         self.alt_data = []
 
@@ -107,7 +242,7 @@ class MainWindow(QMainWindow):
         self.vel_plot_widget.setLabel('left', 'Velociy')
         self.vel_plot_widget.setFixedSize(500, 400)
         self.grid_layout.addWidget(self.vel_plot_widget, 2, 1, 1, 2)
-        self.temp_plot_widget.setMouseEnabled(x=True, y=False)
+        self.vel_plot_widget.setMouseEnabled(x=True, y=False)
         self.vel_plot = self.vel_plot_widget.plot()
         self.vel_data = []
 
@@ -116,7 +251,7 @@ class MainWindow(QMainWindow):
         self.lat_long_plot_widget.setLabel('left', 'Latitude')
         self.lat_long_plot_widget.setFixedSize(500, 400)
         self.grid_layout.addWidget(self.lat_long_plot_widget, 2, 3, 1, 2)
-        self.temp_plot_widget.setMouseEnabled(x=True, y=False)
+        self.lat_long_plot_widget.setMouseEnabled(x=True, y=False)
         self.lat_long_plot = self.lat_long_plot_widget.plot(pen=None, symbol='t', symbolPen=None, symbolSize=10, symbolBrush=(100, 100, 255, 50))
         self.lat_long_data = []
 
@@ -134,7 +269,7 @@ class MainWindow(QMainWindow):
         self.hum_alt_plot_widget.setLabel('left', 'Humidity')
         self.hum_alt_plot_widget.setFixedSize(500, 400)
         self.grid_layout.addWidget(self.hum_alt_plot_widget, 6, 3, 1, 2)
-        self.temp_plot_widget.setMouseEnabled(x=True, y=False)
+        self.hum_alt_plot_widget.setMouseEnabled(x=True, y=False)
         self.hum_alt_plot = self.hum_alt_plot_widget.plot()
         self.hum_alt_data = []
 
@@ -143,7 +278,7 @@ class MainWindow(QMainWindow):
         self.pres_alt_plot_widget.setLabel('left', 'Pressure')
         self.pres_alt_plot_widget.setFixedSize(500, 400)
         self.grid_layout.addWidget(self.pres_alt_plot_widget, 8, 1, 1, 2)
-        self.temp_plot_widget.setMouseEnabled(x=True, y=False)
+        self.pres_alt_plot_widget.setMouseEnabled(x=True, y=False)
         self.pres_alt_plot = self.pres_alt_plot_widget.plot()
         self.pres_alt_data = []
 
@@ -152,18 +287,17 @@ class MainWindow(QMainWindow):
         self.vel_alt_plot_widget.setLabel('left', 'Velocity')
         self.vel_alt_plot_widget.setFixedSize(500, 400)
         self.grid_layout.addWidget(self.vel_alt_plot_widget, 8, 3, 1, 2)
-        self.temp_plot_widget.setMouseEnabled(x=True, y=False)
+        self.vel_alt_plot_widget.setMouseEnabled(x=True, y=False)
         self.vel_alt_plot = self.vel_alt_plot_widget.plot()
         self.vel_alt_data = []
 
-        for i in range(9):
+
+        for i in range(10):
             self.grid_layout.setRowStretch(i, 2)
         for i in range(6):
             self.grid_layout.setColumnStretch(i, 2)
 
-        # self.uart_reader = save_to_excel.UARTReader()
-        # self.excel_handler = save_to_excel.ExcelHandler()
-
+        
 
         # if self.uart_reader.ser:
         self.timer = QTimer()
@@ -172,8 +306,6 @@ class MainWindow(QMainWindow):
 
         # self.start_time = datetime.now()
         # print(f"Start time: {self.start_time}")
-
-    
 
 
     def update_plot(self):
@@ -269,6 +401,10 @@ class MainWindow(QMainWindow):
             self.vel_alt_plot.setData(altitudes_vel, velocities)
 
 
+    def go_back(self):
+        self.home_window.show()
+        self.close()
+
 
     def refresh_ports(self):  # adds available ports to drop down list
         self.port_input.clear()
@@ -283,16 +419,14 @@ class MainWindow(QMainWindow):
 
     def change_port(self):
         port_name = self.port_input.currentText()
-
-        
         if port_name:
             self.uart_reader.connect(port_name, 115200)
 
 
 def main():
     app = QApplication(sys.argv)
-    main_window = MainWindow()
-    main_window.show()
+    home_window = HomeWindow()
+    home_window.show()
     sys.exit(app.exec())
 
 if __name__ == "__main__":
